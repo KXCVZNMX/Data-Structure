@@ -7,31 +7,32 @@
 
 /// Module Data Structure
 pub mod ds {
-    /// This module provides a Slngly Linked List struct
-    /// named `ListNode`
-    ///
-    /// Functions implemented:
-    /// * [new](struct.ListNode.html#method.new) -> `Box<Self>`
-    /// * [from_vec](struct.ListNode.html#method.from_vec) -> `Box<Self>`
-    /// * [print](struct.ListNode.html#method.print) -> `()`
-    /// * [push](struct.ListNode.html#method.push) -> `()`
-    /// * [push_back](struct.ListNode.html#method.push_back) -> `()`
-    /// * [delete](struct.ListNode.html#method.delete) -> `Result<(), &'static str>`
-    /// * [find](struct.ListNode.html#method.find) -> `Result<&Box<Self>, &'static str>`
-    /// * [len](struct.ListNode.html#method.len) -> `i32`
-    /// * [reverse](struct.ListNode.html#method.reverse) -> `()`
-    /// * [copy](struct.ListNode.html#method.copy) -> `Box<ListNode<T>>`
-    /// * [insert](struct.ListNode.html#method.insert) -> `()`
-    /// * [pop](struct.ListNode.html#method.pop) -> `Option<T>`
-    /// * [contains](struct.ListNode.html#method.contains) -> `bool`
-    /// * [merge](struct.ListNode.html#method.merge) -> `Option<Box<ListNode<i32>>>`
-    /// * [sort](struct.ListNode.html#method.sort) -> `Option<Box<ListNode<i32>>>`
     pub mod linked_list {
-        use std::fmt::Display;
+        use std::cell::RefCell;
+        use std::fmt::{Debug, Display};
         use std::ops::{Index, IndexMut};
+        use std::rc::Rc;
         use std::thread;
 
-        /// ListNode implementation
+        /// This module provides a Slngly Linked List struct
+        /// named `ListNode`
+        ///
+        /// Functions implemented:
+        /// * [new](struct.ListNode.html#method.new) -> `Box<Self>`
+        /// * [from_vec](struct.ListNode.html#method.from_vec) -> `Box<Self>`
+        /// * [print](struct.ListNode.html#method.print) -> `()`
+        /// * [push](struct.ListNode.html#method.push) -> `()`
+        /// * [push_back](struct.ListNode.html#method.push_back) -> `()`
+        /// * [delete](struct.ListNode.html#method.delete) -> `Result<(), &'static str>`
+        /// * [find](struct.ListNode.html#method.find) -> `Result<&Box<Self>, &'static str>`
+        /// * [len](struct.ListNode.html#method.len) -> `i32`
+        /// * [reverse](struct.ListNode.html#method.reverse) -> `()`
+        /// * [copy](struct.ListNode.html#method.copy) -> `Box<ListNode<T>>`
+        /// * [insert](struct.ListNode.html#method.insert) -> `()`
+        /// * [pop](struct.ListNode.html#method.pop) -> `Option<T>`
+        /// * [contains](struct.ListNode.html#method.contains) -> `bool`
+        /// * [merge](struct.ListNode.html#method.merge) -> `Option<Box<ListNode<i32>>>`
+        /// * [sort](struct.ListNode.html#method.sort) -> `Option<Box<ListNode<i32>>>`
         #[derive(Clone, Debug)]
         pub struct ListNode<T> {
             pub val: T,
@@ -568,6 +569,60 @@ pub mod ds {
                 head.is_none() && other_head.is_none()
             }
         }
+
+        #[derive(Clone)]
+        pub struct DoubleListNode<T> {
+            pub val: T,
+            pub next: Option<Rc<RefCell<DoubleListNode<T>>>>,
+            pub prev: Option<Rc<RefCell<DoubleListNode<T>>>>
+        }
+        type DLL<T> = Option<Rc<RefCell<DoubleListNode<T>>>>;
+        impl<T> DoubleListNode<T> {
+            pub fn new(val: T) -> DLL<T> {
+                Some(Rc::new(RefCell::new(DoubleListNode {
+                    val,
+                    next: None,
+                    prev: None
+                })))
+            }
+
+            pub fn from_vec(vec: Vec<T>) -> DLL<T>
+            where T:
+                Clone
+            {
+                let mut head: DLL<T> = None;
+                let mut prev: DLL<T> = None;
+
+                for val in vec {
+                    let new_node = Self::new(val).unwrap();
+
+                    if let Some(ref prev_node) = prev {
+                        prev_node.borrow_mut().next = Some(new_node.clone());
+                        new_node.borrow_mut().prev = Some(prev_node.clone());
+                    } else {
+                        head = Some(new_node.clone());
+                    }
+
+                    prev = Some(new_node);
+                }
+                head
+            }
+
+            pub fn print(list: &DLL<T>)
+            where T:
+                Display
+            {
+                let mut head = list.clone();
+
+                while let Some(node) = head {
+                    let current = node.borrow();
+                    print!("{} ({:p}) <-> ", current.val, Rc::as_ptr(&node));
+                    head = current.next.clone();
+                }
+
+                print!("null\n");
+            }
+        }
     }
 
     /// This module provides a Stack struct named `Stack`
@@ -752,38 +807,11 @@ pub mod ds {
             }
         }
     }
-
-    pub mod queue {
-        use std::fmt::Display;
-        use crate::ds::linked_list::ListNode;
-
-        #[derive(Debug, Clone)]
-        pub struct Queue<T> {
-            pub len: usize,
-            pub head: Box<ListNode<T>>,
-            tail: Box<ListNode<T>>,
-        }
-
-        impl<T> Queue<T>
-        where T:
-            Display
-        {
-            pub fn new(val: T) -> Self {
-                let head = ListNode::new(val);
-                let tail = &head;
-                Self {
-                    len: 1,
-                    head,
-                    tail,
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::ds::linked_list::ListNode;
+    use crate::ds::linked_list::{DoubleListNode, ListNode};
     use crate::ds::stack::Stack;
 
     #[test]
@@ -872,5 +900,11 @@ mod test {
         let s3 = Stack::from_vec(vec![1, 2, 3, 4, 5]);
         let comp = s3.peak();
         assert_eq!(comp, 1);
+    }
+
+    #[test]
+    fn test_dll() {
+        let list = DoubleListNode::from_vec(vec![1, 2, 3, 4, 5]);
+        DoubleListNode::print(&list);
     }
 }
