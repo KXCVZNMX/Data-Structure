@@ -622,6 +622,17 @@ pub mod ds {
 
                 print!("null\n");
             }
+
+            pub fn push(&mut self, val: T) {
+                let new = Self::new(val);
+                let mut newhead = new.unwrap().borrow_mut();
+                newhead.next = Some(Rc::new(RefCell::new(Self {
+                    val: self.val.clone(),
+                    next: self.next.take(),
+                    prev: None,
+                })));
+
+            }
         }
     }
 
