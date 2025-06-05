@@ -8,10 +8,8 @@
 /// Module Data Structure
 pub mod ds {
     pub mod linked_list {
-        use std::cell::RefCell;
         use std::fmt::{Debug, Display};
         use std::ops::{Index, IndexMut};
-        use std::rc::Rc;
         use std::thread;
 
         /// This module provides a Slngly Linked List struct
@@ -569,71 +567,6 @@ pub mod ds {
                 head.is_none() && other_head.is_none()
             }
         }
-
-        #[derive(Clone)]
-        pub struct DoubleListNode<T> {
-            pub val: T,
-            pub next: Option<Rc<RefCell<DoubleListNode<T>>>>,
-            pub prev: Option<Rc<RefCell<DoubleListNode<T>>>>
-        }
-        type DLL<T> = Option<Rc<RefCell<DoubleListNode<T>>>>;
-        impl<T> DoubleListNode<T> {
-            pub fn new(val: T) -> DLL<T> {
-                Some(Rc::new(RefCell::new(DoubleListNode {
-                    val,
-                    next: None,
-                    prev: None
-                })))
-            }
-
-            pub fn from_vec(vec: Vec<T>) -> DLL<T>
-            where T:
-                Clone
-            {
-                let mut head: DLL<T> = None;
-                let mut prev: DLL<T> = None;
-
-                for val in vec {
-                    let new_node = Self::new(val).unwrap();
-
-                    if let Some(ref prev_node) = prev {
-                        prev_node.borrow_mut().next = Some(new_node.clone());
-                        new_node.borrow_mut().prev = Some(prev_node.clone());
-                    } else {
-                        head = Some(new_node.clone());
-                    }
-
-                    prev = Some(new_node);
-                }
-                head
-            }
-
-            pub fn print(list: &DLL<T>)
-            where T:
-                Display
-            {
-                let mut head = list.clone();
-
-                while let Some(node) = head {
-                    let current = node.borrow();
-                    print!("{} ({:p}) <-> ", current.val, Rc::as_ptr(&node));
-                    head = current.next.clone();
-                }
-
-                print!("null\n");
-            }
-
-            pub fn push(&mut self, val: T) {
-                let new = Self::new(val);
-                let mut newhead = new.unwrap().borrow_mut();
-                newhead.next = Some(Rc::new(RefCell::new(Self {
-                    val: self.val.clone(),
-                    next: self.next.take(),
-                    prev: None,
-                })));
-
-            }
-        }
     }
 
     /// This module provides a Stack struct named `Stack`
@@ -657,10 +590,7 @@ pub mod ds {
             pub len: usize
         }
 
-        impl<T> Stack<T>
-        where T:
-            Display
-        {
+        impl<T> Stack<T> {
             /// Constructs a new instance of `Stack<T>` with the provided
             /// `val: T`, returning `Self`
             ///
@@ -719,7 +649,10 @@ pub mod ds {
             /// ```
             ///
             /// The stack is displayed with the top (HEAD) indicated.
-            pub fn print(&self) {
+            pub fn print(&self)
+            where T:
+                Display
+            {
                 let separator = "+---".repeat(self.len) + "+";
 
                 println!("{}", separator);
@@ -818,11 +751,61 @@ pub mod ds {
             }
         }
     }
+
+    pub mod vector {
+        use std::alloc;
+        use std::alloc::Layout;
+        use std::ptr::NonNull;
+
+        pub struct Vector<T> {
+            ptr: NonNull<T>,
+            len: usize,
+            cap: usize
+        }
+
+        impl<T> Vector<T> {
+            pub fn new() -> Self {
+                assert_ne!(size_of::<T>(), 0, "Cannot accept a vector with element size 0");
+                Vector {
+                    ptr: NonNull::dangling(),
+                    len: 0,
+                    cap: 0,
+                }
+            }
+
+            pub fn grow(&mut self) {
+                let (new_cap, new_layout) = if self.cap == 0 {
+                    (1, Layout::array::<T>(1).unwrap())
+                } else {
+                    let new_cap = self.cap * 2;
+                    let new_layout = Layout::array::<T>(new_cap).unwrap();
+                    (new_cap, new_layout)
+                };
+
+                assert!(new_layout.size() <= isize::MAX as usize, "Too large of allocation");
+
+                let new_ptr = if self.cap == 0 {
+                    unsafe {alloc::alloc(new_layout)}
+                } else {
+                    let old_layout = Layout::array::<T>(self.cap).unwrap();
+                    let old_ptr = self.ptr.as_ptr() as *mut u8;
+                    unsafe {alloc::realloc(old_ptr, old_layout, new_layout.size())}
+                };
+
+                self.ptr = match NonNull::new(new_ptr as *mut T) {
+                    Some(p) => p,
+                    None => alloc::handle_alloc_error(new_layout),
+                };
+
+                self.cap = new_cap;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::ds::linked_list::{DoubleListNode, ListNode};
+    use crate::ds::linked_list::ListNode;
     use crate::ds::stack::Stack;
 
     #[test]
@@ -911,11 +894,5 @@ mod test {
         let s3 = Stack::from_vec(vec![1, 2, 3, 4, 5]);
         let comp = s3.peak();
         assert_eq!(comp, 1);
-    }
-
-    #[test]
-    fn test_dll() {
-        let list = DoubleListNode::from_vec(vec![1, 2, 3, 4, 5]);
-        DoubleListNode::print(&list);
     }
 }
