@@ -799,6 +799,39 @@ pub mod ds {
 
                 self.cap = new_cap;
             }
+
+            pub fn push(&mut self, val: T) {
+                if self.len == self.cap { self.grow() }
+
+                unsafe {
+                    ptr::write(self.ptr.as_ptr().add(self.len), val);
+                }
+
+                self.len += 1;
+            }
+
+            pub fn pop(&mut self) -> Option<T> {
+                if self.len == 0 {
+                    None
+                } else {
+                    self.len -= 1;
+                    unsafe {
+                        Some(ptr::read(self.ptr.as_ptr().add(self.len)))
+                    }
+                }
+            }
+        }
+
+        impl<T> Drop for Vector<T> {
+            fn drop(&mut self) {
+                while let Some(_) = self.pop() {}
+                unsafe {
+                    alloc::dealloc(
+                        self.ptr.as_ptr() as *mut u8,
+                        Layout::array::<T>(self.cap).unwrap()
+                    );
+                }
+            }
         }
     }
 }
